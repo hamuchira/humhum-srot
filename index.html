@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>はむはむスロット</title>
+<style>
+  :root {
+    --cell: 120px;      /* 1コマの高さ */
+    --reel-w: 120px;    /* リールの幅 */
+    --gap: 12px;
+  }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto;
+    margin: 0; padding: 24px;
+    background: #f7fbff;
+    color: #234;
+  }
+  h1 { margin: 0 0 8px; font-size: 22px; }
+  .wrap {
+    max-width: 480px; margin: 0 auto;
+  }
+  .panel {
+    background: #fff; border-radius: 14px; padding: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.08);
+    margin-bottom: 14px;
+  }
+  .hud { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center; }
+  .hud .money { font-weight: 700; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+  button, select {
+    border: 0; padding: 10px 14px; border-radius: 10px;
+    background: #4facfe; color: white; font-weight: 700; cursor: pointer;
+  }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  select, .pill {
+    background: #eef6ff; color: #234; border: 1px solid #d7e9ff;
+  }
+  .machine {
+    position: relative; padding: 16px; border-radius: 16px;
+    background: linear-gradient(180deg,#eaf3ff,#d9ebff);
+    border: 2px solid #cde2ff;
+  }
+  .reels {
+    display: grid; grid-template-columns: var(--reel-w) var(--reel-w) var(--reel-w);
+    gap: var(--gap); justify-content: center;
+    padding: 12px; background: #fff; border-radius: 14px;
+    box-shadow: inset 0 2px 12px rgba(0,0,0,.06);
+  }
+  .reel {
+    width: var(--reel-w);
+    height: calc(var(--cell) * 3); /* 3段表示 */
+    overflow: hidden; border-radius: 10px; background: #f2f7ff;
+    border: 1px solid #e2efff; position: relative;
+  }
+  .strip {
+    position: absolute; width: 100%; will-change: transform;
+  }
+  .cell {
+    width: 100%; height: var(--cell);
+    display: grid; place-items: center;
+    background: #fff;
+  }
+  .cell img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    user-select: none; -webkit-user-drag: none; pointer-events: none;
+  }
+  .lines {
+    text-align: center; margin-top: 8px; font-size: 12px; color: #456;
+  }
+  .stops { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .result { text-align: center; font-weight: 800; padding: 8px; }
+  .result.win { color: #0a8; }
+  .result.lose { color: #a05; }
+  .pay { font-size: 12px; color: #345; line-height: 1.4; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>はむはむスロット 🎰</h1>
+
+  <div class="panel hud">
+    <div class="money">💰 コイン：<span id="coins">100</span></div>
+    <div class="controls">
+      <label class="pill">BET：
+        <select id="bet">
+          <option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option>
+          <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+        </select>
+      </label>
+      <button id="startBtn">Start</button>
+    </div>
+  </div>
+
+  <div class="panel machine">
+    <div class="reels" id="reels"></div>
+    <div class="stops">
+      <button id="stop1" disabled>STOP①</button>
+      <button id="stop2" disabled>STOP②</button>
+      <button id="stop3" disabled>STOP③</button>
+    </div>
+    <div class="lines">有効ライン：横3本＋斜め2本（計5ライン）</div>
+  </div>
+
+  <div class="panel result" id="result">READY</div>
+  <div class="panel pay">
+    <strong>配当（3つ揃い／ライン）</strong><br>
+    正面顔×3 = BET×6 ／ はむケツ×3 = BET×8 ／ ねむねむ×3 = BET×5 ／ ごはん×3 = BET×5 ／
+    回し車×3 = BET×7 ／ あくび×3 = BET×10（レア） ／ 兄弟×3 = BET×12（レア）
+  </div>
+</div>
+
+<script>
+/* =======================
+   設定
+======================= */
+// ここをあなたの写真に差し替え
+const SYMBOLS = [
+  { id: 'front',   img: 'assets/ham1.jpg',  mul: 6 },
+  { id: 'ketsu',   img: 'assets/ham2.jpg',  mul: 8 },
+  { id: 'sleep',   img: 'assets/ham3.jpg',  mul: 5 },
+  { id: 'eat',     img: 'assets/ham4.jpg',  mul: 5 },
+  { id: 'wheel',   img: 'assets/ham5.jpg',  mul: 7 },
+  { id: 'yawn',    img: 'assets/ham6.jpg',  mul: 10 }, // レア
+  { id: 'bros',    img: 'assets/ham7.jpg',  mul: 12 }  // レア
+];
+// 1コマの高さ（CSSと合わせる）
+const CELL_H = 120;
+// 回転速度（px/秒） 高速→減速
+const SPEED_HIGH = 1800;
+const FRICTION = 0.965;      // 減速率(毎フレーム倍率)
+const STOP_THRESHOLD = 150;  // これ以下になったら停止調整に移行
+const SNAP_SPEED = 0.92;     // スナップ時の減衰
+const REPEAT_STRIP = 3;      // ストリップを繰り返す回数（ループ見せ用）
+
+/* =======================
+   状態
+======================= */
+let coins = 100;
+let betEl = document.getElementById('bet');
+let coinsEl = document.getElementById('coins');
+let resultEl = document.getElementById('result');
+let startBtn = document.getElementById('startBtn');
+let stopBtns = [document.getElementById('stop1'), document.getElementById('stop2'), document.getElementById('stop3')];
+let reelsRoot = document.getElementById('reels');
+
+coinsEl.textContent = coins;
+
+function preload(images) {
+  images.forEach(src => { const i = new Image(); i.src = src; });
+}
+preload(SYMBOLS.map(s => s.img));
+
+/* =======================
+   リール生成
+======================= */
+class Reel {
+  constructor(index) {
+    this.index = index;
+    this.el = document.createElement('div');
+    this.el.className = 'reel';
+
+    this.strip = document.createElement('div');
+    this.strip.className = 'strip';
+    this.el.appendChild(this.strip);
+
+    // ストリップ内容（繰り返しで長くする）
+    for (let r = 0; r < REPEAT_STRIP; r++) {
+      SYMBOLS.forEach(sym => {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        const img = document.createElement('img');
+        img.src = sym.img;
+        img.alt = sym.id;
+        cell.appendChild(img);
+        this.strip.appendChild(cell);
+      });
+    }
+
+    this.totalCells = SYMBOLS.length * REPEAT_STRIP;
+    this.totalH = this.totalCells * CELL_H;
+
+    // 状態
+    this.pos = Math.random() * this.totalH; // 現在位置（px）
+    this.v = 0;          // 速度(px/s)
+    this.state = 'idle'; // 'idle' | 'spin' | 'stopping' | 'snapping' | 'stopped'
+    this.wantStop = false;
+  }
+
+  start() {
+    this.v = SPEED_HIGH;
+    this.state = 'spin';
+    this.wantStop = false;
+  }
+
+  requestStop() {
+    if (this.state === 'spin') {
+      this.state = 'stopping';
+      this.wantStop = true;
+    }
+  }
+
+  update(dt) {
+    // dt: 秒
+    if (this.state === 'spin') {
+      // ひたすら高速で回り続ける
+      this.pos = (this.pos + this.v * dt) % this.totalH;
+    } else if (this.state === 'stopping') {
+      // 減速フェーズ
+      this.v *= Math.pow(FRICTION, (dt * 60)); // フレームレート依存を軽減
+      this.pos = (this.pos + this.v * dt) % this.totalH;
+      if (this.v < STOP_THRESHOLD) {
+        // 近いセル位置へスナップ
+        this.state = 'snapping';
+      }
+    } else if (this.state === 'snapping') {
+      // ぴったり目に吸い込まれる演出：最寄りセル境界へ収束
+      const off = this.pos % CELL_H; // 0..CELL_H
+      let targetDelta = (off < CELL_H/2) ? -off : (CELL_H - off);
+      // 少しずつ寄せる
+      targetDelta *= (1 - SNAP_SPEED);
+      this.pos = (this.pos + targetDelta) % this.totalH;
+
+      // ほぼ境界に来たら停止
+      if (Math.abs(this.pos % CELL_H) < 0.5 || Math.abs((this.pos % CELL_H) - CELL_H) < 0.5) {
+        // 端数切り捨て
+        this.pos = Math.round(this.pos / CELL_H) * CELL_H;
+        this.state = 'stopped';
+        this.v = 0;
+      }
+    }
+    this.render();
+  }
+
+  render() {
+    // translateYはマイナスで上へ
+    this.strip.style.transform = `translateY(${-this.pos % this.totalH}px)`;
+  }
+
+  isStopped() {
+    return this.state === 'stopped';
+  }
+
+  visibleIndices() {
+    // 上から3セル分のインデックス（中央基準にしたければ調整してOK）
+    // ここでは現在のposの「先頭セル」を top として 3 つ返す
+    const topIdx = Math.floor(this.pos / CELL_H) % this.totalCells;
+    const i0 = (topIdx) % this.totalCells;
+    const i1 = (topIdx + 1) % this.totalCells;
+    const i2 = (topIdx + 2) % this.totalCells;
+    // 元配列のどのシンボルか（繰り返しの中にあるので mod SYMBOLS.length）
+    return [i0, i1, i2].map(i => i % SYMBOLS.length);
+  }
+}
+
+const reels = [new Reel(0), new Reel(1), new Reel(2)];
+reels.forEach(r => reelsRoot.appendChild(r.el));
+
+/* =======================
+   ゲーム進行
+======================= */
+let raf = null;
+let last = 0;
+
+function loop(ts) {
+  if (!last) last = ts;
+  const dt = (ts - last) / 1000;
+  last = ts;
+
+  reels.forEach(r => r.update(dt));
+
+  raf = requestAnimationFrame(loop);
+}
+
+function enableStops(on) {
+  stopBtns.forEach(b => b.disabled = !on);
+}
+
+function allStopped() {
+  return reels.every(r => r.isStopped());
+}
+
+function startSpin() {
+  const bet = parseInt(betEl.value, 10);
+  if (coins < bet) {
+    showResult('コイン不足🥲', false);
+    return;
+  }
+  coins -= bet;
+  coinsEl.textContent = coins;
+
+  // リール開始
+  reels.forEach(r => r.start());
+  startBtn.disabled = true;
+  enableStops(true);
+  showResult('SPINNING...', null);
+
+  // ループ開始
+  if (!raf) { last = 0; raf = requestAnimationFrame(loop); }
+}
+
+function stopReel(i) {
+  reels[i].requestStop();
+  // 3つ止まったら精算
+  if (allStopped()) {
+    settle();
+  }
+}
+
+function settle() {
+  // 少し余裕を見て、完全停止を待つ
+  const wait = () => {
+    if (!allStopped()) return setTimeout(wait, 80);
+    enableStops(false);
+    startBtn.disabled = false;
+
+    // 盤面取得（各リールの見えている3セル）
+    // 行ごとにラインを作るため、row=0..2, col=0..2 のid配列を作る
+    const board = Array.from({length:3}, ()=>Array(3).fill(null));
+    for (let col=0; col<3; col++) {
+      const vis = reels[col].visibleIndices(); // 上から3つ
+      for (let row=0; row<3; row++) {
+        board[row][col] = SYMBOLS[vis[row]].id;
+      }
+    }
+
+    // ライン定義（横3＋斜め2）
+    const lines = [
+      [[0,0],[0,1],[0,2]],
+      [[1,0],[1,1],[1,2]],
+      [[2,0],[2,1],[2,2]],
+      [[0,0],[1,1],[2,2]],
+      [[2,0],[1,1],[0,2]],
+    ];
+
+    const bet = parseInt(betEl.value, 10);
+    let win = 0;
+
+    for (const line of lines) {
+      const ids = line.map(([r,c]) => board[r][c]);
+      if (ids[0] === ids[1] && ids[1] === ids[2]) {
+        const sym = SYMBOLS.find(s => s.id === ids[0]);
+        win += bet * (sym?.mul ?? 1);
+      }
+    }
+
+    if (win > 0) {
+      coins += win;
+      coinsEl.textContent = coins;
+      showResult(`WIN! +${win}枚`, true);
+    } else {
+      showResult('No win...', false);
+    }
+  };
+  wait();
+}
+
+function showResult(msg, isWin) {
+  resultEl.textContent = msg;
+  resultEl.classList.remove('win','lose');
+  if (isWin === true) resultEl.classList.add('win');
+  if (isWin === false) resultEl.classList.add('lose');
+}
+
+/* =======================
+   イベント
+======================= */
+startBtn.addEventListener('click', startSpin);
+stopBtns[0].addEventListener('click', ()=>stopReel(0));
+stopBtns[1].addEventListener('click', ()=>stopReel(1));
+stopBtns[2].addEventListener('click', ()=>stopReel(2));
+
+/* =======================
+   初期描画
+======================= */
+reels.forEach(r => r.render());
+</script>
+</body>
+</html>
