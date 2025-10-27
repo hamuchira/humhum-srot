@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>景品交換所</title>
+<style>
+  :root{ --bg:#fff7f9; --ink:#222; --accent:#ff6b8b; --gold1:#ffd561; --gold2:#e6b44b;}
+  *{box-sizing:border-box}
+  body{margin:0;padding:16px;background:var(--bg);font-family:system-ui,-apple-system,'Segoe UI',Roboto;color:var(--ink)}
+  a{text-decoration:none;color:inherit}
+  .wrap{max-width:680px;margin:0 auto}
+  .hdr{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px}
+  .back{position:absolute;left:16px;top:16px;display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border-radius:10px;background:#eef6ff;color:#1d4ed8;font-weight:800;z-index:1}
+  h1{margin:0 0 6px;text-align:center}
+  .shopkeeper{position:relative;background:linear-gradient(#fff,#f6f6f6);border:1px solid #eee;border-radius:16px;padding:16px 16px 8px;display:grid;grid-template-columns:auto 1fr;gap:12px;box-shadow:0 10px 26px rgba(0,0,0,.08)}
+  .hamPhoto{width:88px;height:88px;border-radius:50%;object-fit:cover;border:4px solid #e2caa4;box-shadow:inset 0 -6px 0 rgba(0,0,0,.06)}
+  .bubble{align-self:center;background:#fff;border:1px solid #eee;border-radius:12px;padding:10px 12px;line-height:1.4;box-shadow:0 6px 16px rgba(0,0,0,.06)}
+  .bubble b{color:#d22}
+  .grid{margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .card{background:#fff;border:1px solid #eee;border-radius:14px;padding:12px;box-shadow:0 6px 18px rgba(0,0,0,.06);display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .item{font-weight:700}
+  .price{color:#d22;font-weight:900}
+  .btn{border:0;padding:10px 14px;border-radius:12px;font-weight:900;color:#fff;background:linear-gradient(#7ec3ff,#2b75ff);box-shadow:0 4px 0 #1d4bb3}
+  .note{margin:10px 2px 0;color:#666;font-size:12px}
+  @media (max-width:540px){ .grid{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+  <div class="wrap" style="position:relative">
+    <a class="back" href="index.html">← スロットへ</a>
+    <div class="hdr"><h1>景品交換所</h1></div>
+
+    <div class="shopkeeper">
+      <img class="hamPhoto" src="assets/keeper.png" alt="はむ店長" />
+      <div class="bubble">いらっしゃいませ！店主の<b>はむ店長</b>です。<br/>どの景品と交換しますか？</div>
+    </div>
+
+    <div class="grid">
+      <div class="card"><div class="item">壁紙（HD）</div><div class="price">500 コイン</div><button class="btn" disabled>交換</button></div>
+      <div class="card"><div class="item">壁紙（4K）</div><div class="price">1200 コイン</div><button class="btn" disabled>交換</button></div>
+      <div class="card"><div class="item">GIFスタンプ 5種</div><div class="price">800 コイン</div><button class="btn" disabled>交換</button></div>
+      <div class="card"><div class="item">着せ替えテーマ（ライト）</div><div class="price">1000 コイン</div><button class="btn" disabled>交換</button></div>
+      <div class="card"><div class="item">着せ替えテーマ（ダーク）</div><div class="price">1000 コイン</div><button class="btn" disabled>交換</button></div>
+      <div class="card"><div class="item">限定称号「回し車王」</div><div class="price">3000 コイン</div><button class="btn" disabled>交換</button></div>
+    </div>
+
+    <p class="note">※ はむ店長の写真は <code>assets/keeper.png</code> を好きな画像に差し替えるだけでOK（正方形推奨）。</p>
+  </div>
+</body>
+</html>
